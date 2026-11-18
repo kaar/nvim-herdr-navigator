@@ -13,14 +13,26 @@ Full reference documentation lives in the vimdoc: `:h herdr-navigator`.
 3. **Pane navigation prefers a remembered neighbor.** `h-nav` records the source pane and focuses the most recently used (MRU) neighbor that touches the source's edge. Without one, it runs native `herdr pane focus --direction`.
 
 ```text
-Herdr keybinding -> action -> h-nav (keybinding)
-  |-- Neovim -> send-keys -> window navigation
-  |     `-- window edge -> same action (cli) -> h-nav -> pane navigation
-  |-- fzf -> send-keys -> fzf handles the key
-  `-- other (including Vim) -> pane navigation
+Herdr keybinding → action → h-nav (keybinding)
+├─ Neovim: forward the key
+│  ├─ Window in that direction → focus that window
+│  └─ At the edge → invoke the same action via CLI
+│                   → h-nav (cli) → pane navigation
+├─ fzf: forward the key for fzf to handle
+└─ Other (including Vim) → pane navigation
+```
 
-pane navigation -> record source -> select MRU neighbor -> socket pane.focus
-                                  `-- no target or failure -> native focus
+```text
+Pane navigation
+  ↓
+Record the source pane
+  ↓
+Find the most recently used neighbor in that direction
+  ↓
+Focus that neighbor via the socket (pane.focus)
+
+If there is no neighbor or any step fails:
+  → Use Herdr's native directional focus
 ```
 
 Selection rules, history semantics, fallback conditions, and the socket transport are documented in `:h herdr-navigator-mru`.
