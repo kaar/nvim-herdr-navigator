@@ -6,45 +6,6 @@ This repository contains the Neovim plugin (`plugin/`, `lua/`, `doc/`) and the H
 
 Full reference documentation lives in the vimdoc: `:h herdr-navigator`.
 
-## How it works
-
-1. **Herdr owns the chords.** Each keypress runs the `h-nav` action with `invocation_source: "keybinding"`. For Neovim or fzf, `h-nav` forwards the chord with `herdr pane send-keys`. For other processes, including Vim, it moves pane focus.
-2. **Neovim tries its windows first.** At the layout edge, the plugin asynchronously runs `herdr plugin action invoke herdr-navigator.<direction>`. That calls the same action with `invocation_source: "cli"`, which never forwards keys. This prevents a loop back into Neovim.
-3. **Pane navigation prefers a remembered neighbor.** `h-nav` records the source pane and focuses the most recently used (MRU) neighbor that touches the source's edge. Without one, it runs native `herdr pane focus --direction`.
-
-```text
-Herdr keybinding → action → h-nav (keybinding)
-├─ Neovim: forward the key
-│  ├─ Window in that direction → focus that window
-│  └─ At the edge → invoke the same action via CLI
-│                   → h-nav (cli) → pane navigation
-├─ fzf: forward the key for fzf to handle
-└─ Other (including Vim) → pane navigation
-```
-
-```text
-Pane navigation
-  ↓
-Record the source pane
-  ↓
-Find the most recently used neighbor in that direction
-  ↓
-Focus that neighbor via the socket (pane.focus)
-
-If there is no neighbor or any step fails:
-  → Use Herdr's native directional focus
-```
-
-Selection rules, history semantics, fallback conditions, and the socket transport are documented in `:h herdr-navigator-mru`.
-
-## Requirements
-
-- herdr ≥ 0.9.1 (macOS or Linux)
-- `jq` on the Herdr plugin runtime's `PATH`. Every navigation action needs it, including key forwarding.
-- Neovim ≥ 0.10 (`vim.system` and automatic kitty-keyboard-protocol negotiation, see [notes](#notes--trade-offs))
-- Optional `nc` (netcat) with `-U -w 1` support, for MRU focus by ID. Without it, pane navigation uses native geometry.
-
-See `:h herdr-navigator-requirements` for the netcat variants and timeout caveats.
 
 ## Installation
 
@@ -113,6 +74,7 @@ No `setup()` call is required. The plugin is a no-op unless nvim runs inside a h
 
 [vim-tmux-navigator](https://github.com/christoomey/vim-tmux-navigator) can stay installed alongside: inside herdr this plugin owns the chords (it sets `g:tmux_navigator_no_mappings`, and its mappings win regardless of plugin load order); inside tmux it stays inactive and vim-tmux-navigator works as usual.
 
+
 ## Usage
 
 | Focused pane        | `ctrl+h/j/k/l` does                                       |
@@ -131,6 +93,7 @@ With a tall Pane 1 on the left and Panes 2 and 3 stacked on the right: focus Pan
 
 History records sources of plugin requests only. Mouse clicks and native prefix navigation do not update it. Details: `:h herdr-navigator-mru`.
 
+
 ## Configuration
 
 ```lua
@@ -139,6 +102,49 @@ require("herdr-navigator").setup({
   save_on_switch = nil,  -- nil | "update" | "wall": write buffers before leaving vim
 })
 ```
+
+
+## Requirements
+
+- herdr ≥ 0.9.1 (macOS or Linux)
+- `jq` on the Herdr plugin runtime's `PATH`. Every navigation action needs it, including key forwarding.
+- Neovim ≥ 0.10 (`vim.system` and automatic kitty-keyboard-protocol negotiation, see [notes](#notes--trade-offs))
+- Optional `nc` (netcat) with `-U -w 1` support, for MRU focus by ID. Without it, pane navigation uses native geometry.
+
+See `:h herdr-navigator-requirements` for the netcat variants and timeout caveats.
+
+
+## How it works
+
+1. **Herdr owns the chords.** Each keypress runs the `h-nav` action with `invocation_source: "keybinding"`. For Neovim or fzf, `h-nav` forwards the chord with `herdr pane send-keys`. For other processes, including Vim, it moves pane focus.
+2. **Neovim tries its windows first.** At the layout edge, the plugin asynchronously runs `herdr plugin action invoke herdr-navigator.<direction>`. That calls the same action with `invocation_source: "cli"`, which never forwards keys. This prevents a loop back into Neovim.
+3. **Pane navigation prefers a remembered neighbor.** `h-nav` records the source pane and focuses the most recently used (MRU) neighbor that touches the source's edge. Without one, it runs native `herdr pane focus --direction`.
+
+```text
+Herdr keybinding → action → h-nav (keybinding)
+├─ Neovim: forward the key
+│  ├─ Window in that direction → focus that window
+│  └─ At the edge → invoke the same action via CLI
+│                   → h-nav (cli) → pane navigation
+├─ fzf: forward the key for fzf to handle
+└─ Other (including Vim) → pane navigation
+```
+
+```text
+Pane navigation
+  ↓
+Record the source pane
+  ↓
+Find the most recently used neighbor in that direction
+  ↓
+Focus that neighbor via the socket (pane.focus)
+
+If there is no neighbor or any step fails:
+  → Use Herdr's native directional focus
+```
+
+Selection rules, history semantics, fallback conditions, and the socket transport are documented in `:h herdr-navigator-mru`.
+
 
 ## Notes & trade-offs
 
@@ -149,6 +155,7 @@ require("herdr-navigator").setup({
 - **No wrap.** Neither MRU selection nor `herdr pane focus --direction` wraps at the screen edge — the behaviour vim-tmux-navigator ships `no_wrap` to get.
 - **Latency and transport.** Every action runs `jq` once; keybindings also query process info; MRU adds one layout query and one socket request. See `:h herdr-navigator-mru` for the cost breakdown and socket timeout caveats.
 
+
 ## Health check
 
 ```vim
@@ -156,6 +163,7 @@ require("herdr-navigator").setup({
 ```
 
 It reports whether the plugin is active, the herdr binary is executable, and the server is reachable. It does not check `jq`, `nc`, or the installed actions. Troubleshooting steps for failed edge navigation and missing MRU preference are in `:h herdr-navigator-health`.
+
 
 ## Development
 
@@ -179,6 +187,7 @@ bash tests/h-nav-test
 ```
 
 The harness uses fake Herdr and netcat commands and covers history, geometry, routing, socket responses, fallback, and reset under `sh` and, when available, `dash`. It does not move live panes.
+
 
 ## Credits
 
